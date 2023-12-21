@@ -4,7 +4,7 @@ import jax.numpy as jnp
 import jax_cosmo as jc
 
 from jaxpm.kernels import fftk, gradient_kernel, laplace_kernel, longrange_kernel, PGD_kernel
-from jaxpm.painting import cic_paint, cic_read
+from jaxpm.painting import cic_paint, cic_read, compensate_cic
 from jaxpm.growth import growth_factor, growth_rate, dGfa
 
 def pm_forces(positions, mesh_shape=None, delta=None, r_split=0):
