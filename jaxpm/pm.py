@@ -101,6 +101,15 @@ def generate_d12_bias(cosmo, delta_ic, particles, b1, b2):
 
     return b1*d1 + b2*d2
 
+def whitenoise(Peps, mesh_shape, box_size, seed):
+    noise = jax.random.normal(seed, mesh_shape)
+    Peps *= mesh_shape[0]**3 / box_size[0]**3
+    noise = jnp.fft.irfftn(jnp.fft.rfftn(noise) * Peps**0.5)
+    return noise
+    
+def expected_noise_level(N, L):
+    return (L/N)**3
+
 def make_ode_fn(mesh_shape):
     
     def nbody_ode(state, a, cosmo):
