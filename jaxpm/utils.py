@@ -35,51 +35,83 @@ def _initialize_pk(shape, boxsize, kmin, dk):
 
 
 def power_spectrum(field, kmin=5, dk=0.5, boxsize=False):
-  """
+    """
     Calculate the powerspectra given real space field
     
     Args:
-        
+    
         field: real valued field 
         kmin: minimum k-value for binned powerspectra
         dk: differential in each kbin
         boxsize: length of each boxlength (can be strangly shaped?)
     
     Returns:
-        
+    
         kbins: the central value of the bins for plotting
         power: real valued array of power in each bin
-        
-  """
-  shape = field.shape
-  nx, ny, nz = shape
+    
+    """
+    shape = field.shape
+    nx, ny, nz = shape
+    
+    #initialze values related to powerspectra (mode bins and weights)
+    dig, Nsum, xsum, W, k, kedges = _initialize_pk(shape, boxsize, kmin, dk)
+    
+    #fast fourier transform
+    fft_image = jnp.fft.fftn(field)
+    
+    #absolute value of fast fourier transform
+    pk = jnp.real(fft_image * jnp.conj(fft_image))
+    
+    #calculating powerspectra
+    real = jnp.real(pk).reshape([-1])
+    imag = jnp.imag(pk).reshape([-1])
+    
+    Psum = jnp.bincount(dig, weights=(W.flatten() * imag), length=xsum.size) * 1j
+    Psum += jnp.bincount(dig, weights=(W.flatten() * real), length=xsum.size)
+    
+    P = ((Psum / Nsum)[1:-1] * jnp.array(boxsize).prod()).astype('float32')
+    
+    # jnp.array(box_size).prod()
+    
+    #normalization for powerspectra
+    norm = jnp.prod(np.array(shape[:])).astype('float32')**2
+    
+    #find central values of each bin
+    kbins = kedges[:-1] + (kedges[1:] - kedges[:-1]) / 2
+    
+    return kbins, P / norm
 
-  #initialze values related to powerspectra (mode bins and weights)
-  dig, Nsum, xsum, W, k, kedges = _initialize_pk(shape, boxsize, kmin, dk)
+def cross_correlation(field1, field2, kmin=5, dk=0.5, boxsize=False):
+    shape = field1.shape
+    nx, ny, nz = shape
 
-  #fast fourier transform
-  fft_image = jnp.fft.fftn(field)
+    #initialze values related to powerspectra (mode bins and weights)
+    dig, Nsum, xsum, W, k, kedges = _initialize_pk(shape, boxsize, kmin, dk)
 
-  #absolute value of fast fourier transform
-  pk = jnp.real(fft_image * jnp.conj(fft_image))
+    #fast fourier transform
+    fft_image1 = jnp.fft.fftn(field1)
+    fft_image2 = jnp.fft.fftn(field2)
 
+    #absolute value of fast fourier transform
+    pk = jnp.real(fft_image1 * jnp.conj(fft_image2))
 
-  #calculating powerspectra
-  real = jnp.real(pk).reshape([-1])
-  imag = jnp.imag(pk).reshape([-1])
+    #calculating powerspectra
+    real = jnp.real(pk).reshape([-1])
+    imag = jnp.imag(pk).reshape([-1])
 
-  Psum = jnp.bincount(dig, weights=(W.flatten() * imag), length=xsum.size) * 1j
-  Psum += jnp.bincount(dig, weights=(W.flatten() * real), length=xsum.size)
+    Psum = jnp.bincount(dig, weights=(W.flatten() * imag), length=xsum.size) * 1j
+    Psum += jnp.bincount(dig, weights=(W.flatten() * real), length=xsum.size)
 
-  P = ((Psum / Nsum)[1:-1] * boxsize.prod()).astype('float32')
+    P = ((Psum / Nsum)[1:-1] * jnp.array(boxsize).prod()).astype('float32')
 
-  #normalization for powerspectra
-  norm = np.prod(np.array(shape[:])).astype('float32')**2
+    #normalization for powerspectra
+    norm = jnp.prod(np.array(shape[:])).astype('float32')**2
 
-  #find central values of each bin
-  kbins = kedges[:-1] + (kedges[1:] - kedges[:-1]) / 2
+    #find central values of each bin
+    kbins = kedges[:-1] + (kedges[1:] - kedges[:-1]) / 2
 
-  return kbins, P / norm
+    return kbins, P / norm
 
 def gaussian_smoothing(im, sigma):
   """

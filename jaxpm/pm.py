@@ -27,6 +27,17 @@ def pm_forces(positions, mesh_shape=None, delta=None, r_split=0):
                       for i in range(3)],axis=-1)
 
 
+# def lpt(cosmo, initial_conditions, positions, a):
+#     """
+#     Computes first order LPT displacement
+#     """
+#     initial_force = pm_forces(positions, delta=initial_conditions)
+#     a = jnp.atleast_1d(a)
+#     dx = growth_factor(cosmo, a) * initial_force
+#     p = a**2 * growth_rate(cosmo, a) * jnp.sqrt(jc.background.Esqr(cosmo, a)) * dx
+#     f = a**2 * jnp.sqrt(jc.background.Esqr(cosmo, a)) * dGfa(cosmo, a) * initial_force
+#     return dx, p, f
+
 def lpt(cosmo, initial_conditions, positions, a):
     """
     Computes first order LPT displacement
@@ -34,9 +45,7 @@ def lpt(cosmo, initial_conditions, positions, a):
     initial_force = pm_forces(positions, delta=initial_conditions)
     a = jnp.atleast_1d(a)
     dx = growth_factor(cosmo, a) * initial_force
-    p = a**2 * growth_rate(cosmo, a) * jnp.sqrt(jc.background.Esqr(cosmo, a)) * dx
-    f = a**2 * jnp.sqrt(jc.background.Esqr(cosmo, a)) * dGfa(cosmo, a) * initial_force
-    return dx, p, f
+    return dx
 
 def linear_field(mesh_shape, box_size, pk, seed):
     """
@@ -50,6 +59,47 @@ def linear_field(mesh_shape, box_size, pk, seed):
     field = jnp.fft.rfftn(field) * pkmesh**0.5
     field = jnp.fft.irfftn(field)
     return field
+
+def linear_field_from_IC(IC_field, box_size, pk):
+    """
+    obtain linear field from IC
+    """
+
+    mesh_shape = IC_field.shape
+
+    kvec = fftk(mesh_shape)
+    kmesh = sum((kk / box_size[i] * mesh_shape[i])**2 for i, kk in enumerate(kvec))**0.5
+    pkmesh = pk(kmesh) * (mesh_shape[0] * mesh_shape[1] * mesh_shape[2]) / (box_size[0] * box_size[1] * box_size[2])
+
+    field = jnp.fft.rfftn(IC_field) * pkmesh**0.5
+    field = jnp.fft.irfftn(field)
+    return field
+
+def linear_field_just_IC(mesh_shape, box_size, seed):
+    """
+    Generate just initial conditions.
+    """
+    field = jax.random.normal(seed, mesh_shape)
+    return field
+
+def generate_d12_bias(cosmo, delta_ic, particles, b1, b2):
+    """
+    Generate b1 * shifted_delta_1 + b2 * shifted_delta_2 (missing tidal for now...)
+    """
+    weights1 = cic_read(delta_ic, particles)
+    weights1 -= weights1.mean()
+
+    weights2 = weights1**2
+    weights2 -= weights2.mean()
+
+    # Move the particles using displacement field
+    dx = lpt(cosmo, delta_ic, particles, a=1.0)
+    pos = particles + dx
+
+    d1 = compensate_cic(cic_paint(jnp.zeros(delta_ic.shape), pos, weights1))
+    d2 = compensate_cic(cic_paint(jnp.zeros(delta_ic.shape), pos, weights2))
+
+    return b1*d1 + b2*d2
 
 def make_ode_fn(mesh_shape):
     

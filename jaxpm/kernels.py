@@ -124,3 +124,23 @@ def PGD_kernel(kvec, kl, ks):
   imask = (~(kk == 0)).astype(int)
   v *= imask
   return v
+
+def tidal_G2(delta):
+    delta_k = jnp.fft.rfftn(delta)
+    out_rfield = - delta**2
+    kvec = fftk(delta.shape)
+    kk = sum(ki**2 for ki in kvec)
+    kk[kk == 0] = 1
+
+    for i in range(3):
+        for j in range(i, 3):
+            dij_k = delta_k * kvec[i] * kvec[j] / kk
+            dij_x = jnp.fft.irfftn(dij_k)
+
+            if i == j:
+                fac = 1.0
+            else:
+                fac = 2.0
+            out_rfield += fac * dij_x**2
+
+    return out_rfield
