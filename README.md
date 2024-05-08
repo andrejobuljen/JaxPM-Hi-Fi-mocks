@@ -6,6 +6,6 @@
 Check out this [notebook](/notebooks/forward_model_notebook.ipynb) on how to perform 3D field-level inference using NUTS HMC with [NumPyro](https://num.pyro.ai/en/latest/index.html#), varying initial conditions, cosmology and bias parameters.
 
 
-## Acknowlegdement
+## Acknowledgement
 
 This code evolved from [JaxPM](https://github.com/DifferentiableUniverseInitiative/JaxPM).
