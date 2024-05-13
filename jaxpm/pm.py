@@ -101,6 +101,26 @@ def generate_d12_bias(cosmo, delta_ic, particles, b1, b2):
 
     return b1*d1 + b2*d2
 
+def generate_d12_separately(cosmo, delta_ic, particles):
+    """
+    Generate shifted_delta_1 and shifted_delta_2
+    
+    """
+    weights1 = cic_read(delta_ic, particles)
+    weights1 -= weights1.mean()
+
+    weights2 = weights1**2
+    weights2 -= weights2.mean()
+
+    # Move the particles using displacement field
+    dx = lpt(cosmo, delta_ic, particles, a=1.0)
+    pos = particles + dx
+
+    d1 = compensate_cic(cic_paint(jnp.zeros(delta_ic.shape), pos, weights1))
+    d2 = compensate_cic(cic_paint(jnp.zeros(delta_ic.shape), pos, weights2))
+
+    return d1, d2
+
 def whitenoise(Peps, mesh_shape, box_size, seed):
     noise = jax.random.normal(seed, mesh_shape)
     Peps *= mesh_shape[0]**3 / box_size[0]**3
